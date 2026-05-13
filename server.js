@@ -7,6 +7,105 @@ app.use(express.json())
 
 const PORT = process.env.PORT || 3000
 
+// === PAGE D'ACCUEIL ===
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>OSINT Engine</title>
+      <style>
+        body { background: #0d1117; color: #c9d1d9; font-family: monospace; padding: 40px; max-width: 800px; margin: auto; }
+        h1 { color: #58a6ff; }
+        input, select, button { padding: 10px; margin: 5px; border-radius: 6px; border: 1px solid #30363d; font-size: 14px; }
+        input { background: #161b22; color: #c9d1d9; width: 300px; }
+        select, button { background: #21262d; color: #c9d1d9; cursor: pointer; }
+        button:hover { background: #30363d; }
+        pre { background: #161b22; padding: 20px; border-radius: 8px; margin-top: 20px; overflow: auto; max-height: 500px; border: 1px solid #30363d; }
+        .status { color: #3fb950; }
+        .label { color: #8b949e; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <h1>🔍 OSINT Engine</h1>
+      <p>Recherche via proxy dynamique — ton IP est protégée</p>
+      
+      <div>
+        <input type="text" id="query" placeholder="Email (ex: bill@microsoft.com)">
+        
+        <select id="type">
+          <option value="email">Email</option>
+          <option value="test">Tester un proxy</option>
+        </select>
+        
+        <select id="gender">
+          <option value="">Filtre sexe (aucun)</option>
+          <option value="male">Homme seulement</option>
+          <option value="female">Femme seulement</option>
+        </select>
+        
+        <button onclick="search()">🔍 Lancer</button>
+        <button onclick="testProxy()">🔄 Tester proxy</button>
+      </div>
+      
+      <pre id="result">Prêt. Lance une recherche...</pre>
+
+      <p class="label">
+        <span class="status">●</span> 
+        Proxys disponibles : <span id="proxyCount">?</span>
+      </p>
+
+      <script>
+        async function search() {
+          const query = document.getElementById('query').value
+          const type = document.getElementById('type').value
+          const genderFilter = document.getElementById('gender').value
+          
+          if (!query && type === 'email') {
+            document.getElementById('result').textContent = 'Entre un email valide'
+            return
+          }
+          
+          document.getElementById('result').textContent = '⏳ Recherche en cours...'
+          
+          try {
+            const response = await fetch('/api/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query, type, genderFilter })
+            })
+            const data = await response.json()
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2)
+          } catch(e) {
+            document.getElementById('result').textContent = 'Erreur : ' + e.message
+          }
+        }
+        
+        async function testProxy() {
+          document.getElementById('result').textContent = '⏳ Test du proxy...'
+          try {
+            const response = await fetch('/api/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: '', type: 'test' })
+            })
+            const data = await response.json()
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2)
+          } catch(e) {
+            document.getElementById('result').textContent = 'Erreur : ' + e.message
+          }
+        }
+        
+        // Charger le nombre de proxys
+        fetch('/api/status').then(r => r.json()).then(d => {
+          document.getElementById('proxyCount').textContent = d.proxies_disponibles
+        })
+      </script>
+    </body>
+    </html>
+  `)
+})
+
 // === GESTION DES PROXYS ===
 const proxyPool = []
 let currentIndex = 0
